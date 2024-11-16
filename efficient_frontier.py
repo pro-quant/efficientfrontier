@@ -58,58 +58,59 @@ start_date = end_date - timedelta(days=3*365)
 tickers = st.sidebar.text_input("Enter 2 or 3 Ticker Symbols (comma-separated)", value="AAPL, MSFT, META")
 tickers = [ticker.strip().upper() for ticker in tickers.split(",")]
 
+if len(tickers) < 2 or len(tickers) > 3:
+    st.error("Please enter exactly 2 or 3 ticker symbols.")
+
 portfolio_amount = st.sidebar.number_input("Portfolio Amount (e.g., 1000)", value=1000.0, step=100.0)
 rf_rate = st.sidebar.number_input("Risk-Free Rate (as a decimal, e.g., 0.02)", value=0.02, step=0.01)
 num_simulations = st.sidebar.number_input("Number of Portfolios to Simulate", value=1000, min_value=100, step=100)
 
-if len(tickers) < 2 or len(tickers) > 3:
-    st.error("Please enter exactly 2 or 3 ticker symbols.")
-else:
-    if st.button("Simulate Portfolio"):
-        with st.spinner("Fetching stock data and simulating portfolios..."):
-            stock_data = fetch_stock_data(tickers, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
+# Main logic
+if st.button("Simulate Portfolio"):
+    with st.spinner("Fetching stock data and simulating portfolios..."):
+        stock_data = fetch_stock_data(tickers, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
 
-            if stock_data is not None:
-                returns = stock_data.pct_change().dropna()
-                mean_returns = returns.mean()
-                cov_matrix = returns.cov()
+        if stock_data is not None:
+            returns = stock_data.pct_change().dropna()
+            mean_returns = returns.mean()
+            cov_matrix = returns.cov()
 
-                weights, prets, pvols, pSharpe = simulate_portfolios(
-                    returns, mean_returns, cov_matrix, rf_rate, portfolio_amount, num_simulations
-                )
+            weights, prets, pvols, pSharpe = simulate_portfolios(
+                returns, mean_returns, cov_matrix, rf_rate, portfolio_amount, num_simulations
+            )
 
-                ind_max_sharpe = np.argmax(pSharpe)
-                max_sharpe_weights = weights[ind_max_sharpe]
-                max_sharpe_return = prets[ind_max_sharpe]
-                max_sharpe_vol = pvols[ind_max_sharpe]
+            ind_max_sharpe = np.argmax(pSharpe)
+            max_sharpe_weights = weights[ind_max_sharpe]
+            max_sharpe_return = prets[ind_max_sharpe]
+            max_sharpe_vol = pvols[ind_max_sharpe]
 
-                ind_mvp = np.argmin(pvols)
-                mvp_weights = weights[ind_mvp]
-                mvp_return = prets[ind_mvp]
-                mvp_vol = pvols[ind_mvp]
+            ind_mvp = np.argmin(pvols)
+            mvp_weights = weights[ind_mvp]
+            mvp_return = prets[ind_mvp]
+            mvp_vol = pvols[ind_mvp]
 
-                st.subheader("Portfolio Optimization Results")
-                st.write(f"**Portfolio Amount: ${portfolio_amount:.2f}**")
-                st.write(f"**Maximum Sharpe Ratio Portfolio**")
-                st.write(f"Weights: {dict(zip(tickers, np.round(max_sharpe_weights, 4)))}")
-                st.write(f"Return: ${max_sharpe_return:.2f}")
-                st.write(f"Volatility: ${max_sharpe_vol:.2f}")
-                st.write(f"Sharpe Ratio: {pSharpe[ind_max_sharpe]:.4f}")
+            st.subheader("Portfolio Optimization Results")
+            st.write(f"**Portfolio Amount: ${portfolio_amount:.2f}**")
+            st.write(f"**Maximum Sharpe Ratio Portfolio**")
+            st.write(f"Weights: {dict(zip(tickers, np.round(max_sharpe_weights, 4)))}")
+            st.write(f"Return: ${max_sharpe_return:.2f}")
+            st.write(f"Volatility: ${max_sharpe_vol:.2f}")
+            st.write(f"Sharpe Ratio: {pSharpe[ind_max_sharpe]:.4f}")
 
-                st.write(f"**Minimum Variance Portfolio**")
-                st.write(f"Weights: {dict(zip(tickers, np.round(mvp_weights, 4)))}")
-                st.write(f"Return: ${mvp_return:.2f}")
-                st.write(f"Volatility: ${mvp_vol:.2f}")
-                st.write(f"Sharpe Ratio: {pSharpe[ind_mvp]:.4f}")
+            st.write(f"**Minimum Variance Portfolio**")
+            st.write(f"Weights: {dict(zip(tickers, np.round(mvp_weights, 4)))}")
+            st.write(f"Return: ${mvp_return:.2f}")
+            st.write(f"Volatility: ${mvp_vol:.2f}")
+            st.write(f"Sharpe Ratio: {pSharpe[ind_mvp]:.4f}")
 
-                if st.button("Plot Efficient Frontier"):
-                    fig, ax = plt.subplots(figsize=(10, 5))
-                    scatter = ax.scatter(pvols, prets, c=pSharpe, cmap="viridis", marker="o")
-                    ax.scatter(max_sharpe_vol, max_sharpe_return, color="red", marker="*", s=200, label="Max Sharpe Ratio")
-                    ax.scatter(mvp_vol, mvp_return, color="blue", marker="*", s=200, label="Minimum Variance")
-                    ax.set_xlabel("Portfolio Volatility (Risk)")
-                    ax.set_ylabel("Expected Portfolio Return")
-                    ax.set_title("Efficient Frontier: Expected Return vs. Volatility")
-                    ax.legend()
-                    fig.colorbar(scatter, label="Sharpe Ratio")
-                    st.pyplot(fig)
+            if st.button("Plot Efficient Frontier"):
+                fig, ax = plt.subplots(figsize=(10, 5))
+                scatter = ax.scatter(pvols, prets, c=pSharpe, cmap="viridis", marker="o")
+                ax.scatter(max_sharpe_vol, max_sharpe_return, color="red", marker="*", s=200, label="Max Sharpe Ratio")
+                ax.scatter(mvp_vol, mvp_return, color="blue", marker="*", s=200, label="Minimum Variance")
+                ax.set_xlabel("Portfolio Volatility (Risk)")
+                ax.set_ylabel("Expected Portfolio Return")
+                ax.set_title("Efficient Frontier: Expected Return vs. Volatility")
+                ax.legend()
+                fig.colorbar(scatter, label="Sharpe Ratio")
+                st.pyplot(fig)
