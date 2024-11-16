@@ -5,20 +5,22 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 
 
-# Function to fetch stock data
 def fetch_stock_data(tickers, start_date, end_date):
     adjusted_closes = {}
     for ticker in tickers:
         try:
             df = yf.download(ticker, start=start_date, end=end_date, progress=False)[["Adj Close"]]
             if df.empty:
-                st.error(f"No data found for {ticker}. Check the ticker symbol or adjust the date range.")
-                return None
-            adjusted_closes[ticker] = df["Adj Close"]
+                st.warning(f"No data found for {ticker}. Check the ticker symbol or adjust the date range.")
+            else:
+                adjusted_closes[ticker] = df["Adj Close"]
         except Exception as e:
             st.error(f"Error fetching data for {ticker}: {e}")
-            return None
+    if not adjusted_closes:  # If no valid data is fetched
+        st.error("No valid data fetched for the provided tickers and date range.")
+        return None
     return pd.DataFrame(adjusted_closes)
+
 
 
 # Portfolio optimization
