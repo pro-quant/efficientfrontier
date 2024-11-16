@@ -5,23 +5,24 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 from datetime import datetime, timedelta
 
-# Function to fetch stock data
+# Function to fetch adjusted closing prices
 def fetch_stock_data(tickers, start_date, end_date):
-    data = {}
+    adjusted_closes = {}
     for ticker in tickers:
         try:
-            df = yf.download(ticker, start=start_date, end=end_date)
+            # Download only adjusted close prices
+            df = yf.download(ticker, start=start_date, end=end_date, progress=False)[["Adj Close"]]
             if df.empty:
                 st.error(f"No data found for {ticker}. Check if the stock exists or adjust the date range.")
                 return None
             elif df.index[0] > pd.Timestamp(start_date):
                 st.error(f"Stock {ticker} does not have data going back to {start_date}. Adjust the start date.")
                 return None
-            data[ticker] = df["Adj Close"]
+            adjusted_closes[ticker] = df["Adj Close"]
         except Exception as e:
             st.error(f"Error fetching data for {ticker}: {e}")
             return None
-    return pd.DataFrame(data)
+    return pd.DataFrame(adjusted_closes)
 
 # Portfolio optimization
 def simulate_portfolios(returns, mean_returns, cov_matrix, rf_rate, portfolio_amount):
@@ -58,7 +59,13 @@ st.sidebar.header("Portfolio Parameters")
 end_date = datetime.today()
 start_date = end_date - timedelta(days=3*365)
 
-tickers = st.sidebar.text_input("Enter 2 or 3 Ticker Symbols (comma-separated)").split(",")
+# Default tickers
+default_tickers = ["AAPL", "MSFT", "META"]
+
+# User ticker input
+tickers = st.sidebar.text_input("Enter 2 or 3 Ticker Symbols (comma-separated)", value=", ".join(default_tickers))
+tickers = [ticker.strip().upper() for ticker in tickers.split(",")]
+
 portfolio_amount = st.sidebar.number_input("Portfolio Amount (e.g., 1000)", value=1000.0, step=100.0)
 rf_rate = st.sidebar.number_input("Risk-Free Rate (as a decimal, e.g., 0.02)", value=0.02, step=0.01)
 
@@ -68,13 +75,10 @@ if len(tickers) < 2 or len(tickers) > 3:
 else:
     if st.button("Simulate Portfolio"):
         with st.spinner("Fetching stock data and simulating portfolios..."):
-            stock_data = fetch_stock_data(
-                [ticker.strip().upper() for ticker in tickers], 
-                start_date=start_date.strftime("%Y-%m-%d"), 
-                end_date=end_date.strftime("%Y-%m-%d")
-            )
+            stock_data = fetch_stock_data(tickers, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
 
             if stock_data is not None:
+                # Calculate returns and covariance matrix
                 returns = stock_data.pct_change().dropna()
                 mean_returns = returns.mean()
                 cov_matrix = returns.cov()
