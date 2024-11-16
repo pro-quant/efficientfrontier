@@ -5,71 +5,63 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 from datetime import datetime, timedelta
 
-# Function to fetch adjusted closing prices
+
+# Function to fetch stock data
 def fetch_stock_data(tickers, start_date, end_date):
     adjusted_closes = {}
     for ticker in tickers:
         try:
-            # Download only adjusted close prices
             df = yf.download(ticker, start=start_date, end=end_date, progress=False)[["Adj Close"]]
             if df.empty:
-                st.error(f"No data found for {ticker}. Check if the stock exists or adjust the date range.")
+                st.error(f"No data found for {ticker}. Check the ticker symbol or adjust the date range.")
                 return None
-            elif df.index[0] > pd.Timestamp(start_date):
-                st.error(f"Stock {ticker} does not have data going back to {start_date}. Adjust the start date.")
-                return None
+            # Ensure dates are timezone-naive
+            df.index = df.index.tz_localize(None)
             adjusted_closes[ticker] = df["Adj Close"]
         except Exception as e:
             st.error(f"Error fetching data for {ticker}: {e}")
             return None
     return pd.DataFrame(adjusted_closes)
 
+
 # Portfolio optimization
-def simulate_portfolios(returns, mean_returns, cov_matrix, rf_rate, portfolio_amount):
-    noa = len(returns.columns)  # Number of assets
+def simulate_portfolios(returns, mean_returns, cov_matrix, rf_rate, portfolio_amount, num_simulations):
+    noa = len(returns.columns)
     pWeights, prets, pvols, pSharpe = [], [], [], []
 
-    # Generate random portfolios
-    for _ in range(5000):
+    for _ in range(num_simulations):
         weights = np.random.random(noa)
-        weights /= np.sum(weights)  # Normalize weights to sum to 1
+        weights /= np.sum(weights)
         pWeights.append(weights)
 
-        # Portfolio return and volatility
         ret = np.sum(mean_returns * weights) * 252
         vol = np.sqrt(np.dot(weights, np.dot(cov_matrix, weights.T)))
-        sharpe = (ret - rf_rate) / vol  # Sharpe ratio
+        sharpe = (ret - rf_rate) / vol
 
-        prets.append(ret * portfolio_amount / 100)  # Scale by portfolio amount
-        pvols.append(vol * portfolio_amount / 100)  # Scale by portfolio amount
+        prets.append(ret * portfolio_amount / 100)
+        pvols.append(vol * portfolio_amount / 100)
         pSharpe.append(sharpe)
 
     return np.array(pWeights), np.array(prets), np.array(pvols), np.array(pSharpe)
 
+
 # Streamlit UI
-st.title("Portfolio Optimization and Simulation")
+st.title("Portfolio Optimization with Efficient Frontier")
 st.markdown(
-    "This app allows you to input 2 or 3 ticker symbols, specify portfolio amount, simulate portfolios, and calculate the Minimum Variance Portfolio (MVP) and Maximum Sharpe Ratio portfolio."
+    "This app simulates portfolios and calculates the Minimum Variance Portfolio (MVP) and Maximum Sharpe Ratio Portfolio."
 )
 
-# User Inputs
+# Sidebar inputs
 st.sidebar.header("Portfolio Parameters")
-
-# Default date range
 end_date = datetime.today()
 start_date = end_date - timedelta(days=3*365)
-
-# Default tickers
-default_tickers = ["AAPL", "MSFT", "META"]
-
-# User ticker input
-tickers = st.sidebar.text_input("Enter 2 or 3 Ticker Symbols (comma-separated)", value=", ".join(default_tickers))
+tickers = st.sidebar.text_input("Enter 2 or 3 Ticker Symbols (comma-separated)", value="AAPL, MSFT, META")
 tickers = [ticker.strip().upper() for ticker in tickers.split(",")]
 
 portfolio_amount = st.sidebar.number_input("Portfolio Amount (e.g., 1000)", value=1000.0, step=100.0)
 rf_rate = st.sidebar.number_input("Risk-Free Rate (as a decimal, e.g., 0.02)", value=0.02, step=0.01)
+num_simulations = st.sidebar.number_input("Number of Portfolios to Simulate", value=1000, min_value=100, step=100)
 
-# Ensure valid input
 if len(tickers) < 2 or len(tickers) > 3:
     st.error("Please enter exactly 2 or 3 ticker symbols.")
 else:
@@ -78,27 +70,24 @@ else:
             stock_data = fetch_stock_data(tickers, start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
 
             if stock_data is not None:
-                # Calculate returns and covariance matrix
                 returns = stock_data.pct_change().dropna()
                 mean_returns = returns.mean()
                 cov_matrix = returns.cov()
 
-                # Perform portfolio simulation
-                weights, prets, pvols, pSharpe = simulate_portfolios(returns, mean_returns, cov_matrix, rf_rate, portfolio_amount)
+                weights, prets, pvols, pSharpe = simulate_portfolios(
+                    returns, mean_returns, cov_matrix, rf_rate, portfolio_amount, num_simulations
+                )
 
-                # Find the portfolio with the highest Sharpe Ratio
                 ind_max_sharpe = np.argmax(pSharpe)
                 max_sharpe_weights = weights[ind_max_sharpe]
                 max_sharpe_return = prets[ind_max_sharpe]
                 max_sharpe_vol = pvols[ind_max_sharpe]
 
-                # Find the Minimum Variance Portfolio
                 ind_mvp = np.argmin(pvols)
                 mvp_weights = weights[ind_mvp]
                 mvp_return = prets[ind_mvp]
                 mvp_vol = pvols[ind_mvp]
 
-                # Display Results
                 st.subheader("Portfolio Optimization Results")
                 st.write(f"**Portfolio Amount: ${portfolio_amount:.2f}**")
                 st.write(f"**Maximum Sharpe Ratio Portfolio**")
@@ -113,7 +102,6 @@ else:
                 st.write(f"Volatility: ${mvp_vol:.2f}")
                 st.write(f"Sharpe Ratio: {pSharpe[ind_mvp]:.4f}")
 
-                # Efficient Frontier Plot
                 if st.button("Plot Efficient Frontier"):
                     fig, ax = plt.subplots(figsize=(10, 5))
                     scatter = ax.scatter(pvols, prets, c=pSharpe, cmap="viridis", marker="o")
