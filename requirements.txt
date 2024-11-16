@@ -2,4 +2,5 @@ streamlit
 numpy
 pandas
 matplotlib
-scipy
+pandas_datareader
+yfinance 
