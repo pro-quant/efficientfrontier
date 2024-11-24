@@ -2,6 +2,4 @@ streamlit
 numpy
 pandas
 matplotlib
-pandas_datareader
-yfinance 
-datetime 
+openpyxl
