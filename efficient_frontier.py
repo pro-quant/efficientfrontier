@@ -103,8 +103,8 @@ if uploaded_file:
                     {
                         "Metric": ["Weights", "Return", "Volatility", "Sharpe Ratio"],
                         "Value": [
-                            dict(zip(stock_data.columns, np.round(
-                                max_sharpe_weights, 4))),
+                            {key: float(value) for key, value in zip(
+                                stock_data.columns, np.round(max_sharpe_weights, 4))},
                             f"{max_sharpe_return:.4f}",
                             f"{max_sharpe_vol:.4f}",
                             f"{pSharpe[ind_max_sharpe]:.4f}"
@@ -125,7 +125,8 @@ if uploaded_file:
                     {
                         "Metric": ["Weights", "Return", "Volatility", "Sharpe Ratio"],
                         "Value": [
-                            dict(zip(stock_data.columns, np.round(mvp_weights, 4))),
+                            {key: float(value) for key, value in zip(
+                                stock_data.columns, np.round(mvp_weights, 4))},
                             f"{mvp_return:.4f}",
                             f"{mvp_vol:.4f}",
                             f"{pSharpe[ind_mvp]:.4f}"
